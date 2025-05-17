@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import lombok.RequiredArgsConstructor;
 
+import java.sql.Types;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -35,6 +36,27 @@ public class SqlServerTableRepository implements TableRepositoryPort {
         jdbcTemplate.execute("CREATE TABLE " + tableName + " (id INT IDENTITY PRIMARY KEY, " + columnsSql + ")");
     }
 
+//    @Override
+//    public void bulkInsert(String tableName, List<Map<String, String>> data) {
+//        if (data.isEmpty()) return;
+//        
+//        List<String> columns = new ArrayList<>(data.get(0).keySet());
+//        String sql = buildInsertSql(tableName, columns);
+//        
+//        // Log 4: SQL generado y valores
+//        System.out.println("### SQL a ejecutar: " + sql);
+//        System.out.println("### Valores por fila:");
+//        
+//        jdbcTemplate.batchUpdate(sql, data.stream()
+//                .map(row -> 
+//        
+//                
+//                columns.stream()
+//                    .map(col -> row.get(col))  // <- Insertar el valor original SIN transformaciones
+//                    .toArray())
+//                .toList());
+//    }
+    
     @Override
     public void bulkInsert(String tableName, List<Map<String, String>> data) {
         if (data.isEmpty()) return;
@@ -42,10 +64,20 @@ public class SqlServerTableRepository implements TableRepositoryPort {
         List<String> columns = new ArrayList<>(data.get(0).keySet());
         String sql = buildInsertSql(tableName, columns);
         
-        jdbcTemplate.batchUpdate(sql, data.stream()
-            .map(row -> columns.stream().map(row::get).toArray())
-            .toList());
-    }
+        // Parámetros con tipo explícito
+        int[] types = columns.stream()
+            .map(col -> Types.NVARCHAR)  // Usar NVARCHAR para todos los campos de texto
+            .mapToInt(i -> i)
+            .toArray();
+        
+        jdbcTemplate.batchUpdate(
+            sql,
+            data.stream()
+                .map(row -> columns.stream().map(row::get).toArray())
+                .toList(),
+            types  // ← Tipos de datos explícitos
+        );
+    } 
 
     private String buildInsertSql(String tableName, List<String> columns) {
         String placeholders = String.join(", ", Collections.nCopies(columns.size(), "?"));
@@ -72,5 +104,10 @@ public class SqlServerTableRepository implements TableRepositoryPort {
     @Override
     public void dropTable(String tableName) {
         jdbcTemplate.execute("DROP TABLE IF EXISTS " + tableName);
+    }
+    
+    private String sanitizeValue(String value) {
+        if (value == null) return null;
+        return value.replace("[", "").replace("]", "");  // Elimina corchetes
     }
 }

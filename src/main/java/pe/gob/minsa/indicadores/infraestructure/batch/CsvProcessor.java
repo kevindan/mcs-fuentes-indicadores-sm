@@ -13,22 +13,30 @@ import java.util.stream.Collectors;
 public class CsvProcessor {
 
     public static List<Map<String, String>> process(InputStream csvStream) throws IOException {
-        try (Reader reader = new InputStreamReader(new BOMInputStream(csvStream)); // Manejo de BOM
-             CSVParser parser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader())) {
+        try (Reader reader = new InputStreamReader(new BOMInputStream(csvStream));
+             CSVParser parser = new CSVParser(reader, CSVFormat.DEFAULT
+                 .withFirstRecordAsHeader()
+                 .withTrim() // Elimina espacios alrededor de los valores
+                 .withIgnoreEmptyLines()
+             )) {
 
-            // 1. Sanitizar encabezados
-            List<String> sanitizedHeaders = parser.getHeaderNames().stream()
-                .map(CsvProcessor::sanitizeColumnName)
-                .collect(Collectors.toList());
-
-            // 2. Procesar registros
+        //	System.out.println("### Encabezados CSV originales: " + parser.getHeaderNames());
+        	
             List<Map<String, String>> data = new ArrayList<>();
             for (CSVRecord record : parser) {
-                Map<String, String> row = new HashMap<>();
-                for (int i = 0; i < sanitizedHeaders.size(); i++) {
-                    String header = sanitizedHeaders.get(i);
-                    String value = record.get(i); // Obtiene por índice, no por nombre
-                    row.put(header, value);
+                Map<String, String> row = new LinkedHashMap<>(); // Mantiene orden original
+                for (String header : parser.getHeaderNames()) {
+                    // Usa el nombre original del encabezado (sin sanitizar)
+                    String value = record.get(header); // ← Obtiene por nombre, no por índice
+                    row.put(header, value != null ? value.trim() : null);
+                    
+                    // Log 2: Valores crudos por fila/columna
+//                    System.out.println(
+//                        String.format("[Fila %d] Columna '%s': Valor = '%s'", 
+//                        record.getRecordNumber(), header, value)
+//                    );
+                    
+                    
                 }
                 data.add(row);
             }

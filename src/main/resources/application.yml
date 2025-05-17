@@ -9,7 +9,7 @@ spring:
       max-file-size: 100MB
       max-request-size: 150MB
   datasource:
-    url: jdbc:sqlserver://sqlserver-1.cte66si2kd9h.eu-central-1.rds.amazonaws.com:1433;databaseName=BD_INDICADORES_SM;encrypt=false;trustServerCertificate=true;sendStringParametersAsUnicode=false;useBulkCopyForBatchInsert=true
+    url: jdbc:sqlserver://sqlserver-1.cte66si2kd9h.eu-central-1.rds.amazonaws.com:1433;databaseName=BD_INDICADORES_SM;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true;useBulkCopyForBatchInsert=true
     username: admin
     password: SzN2aW5AMTIzNDU2ZGVlKw==
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver

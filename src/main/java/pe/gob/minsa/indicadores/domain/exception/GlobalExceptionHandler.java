@@ -1,5 +1,6 @@
 package pe.gob.minsa.indicadores.domain.exception;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -39,5 +40,12 @@ public class GlobalExceptionHandler {
         
         response.put("error", errorMessage);
         return ResponseEntity.badRequest().body(response);
+    }
+    
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<Map<String, String>> handleDataAccessException(DataAccessException ex) {
+        Map<String, String> response = new HashMap<>();
+        response.put("error", "Error de base de datos: " + ex.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 }
