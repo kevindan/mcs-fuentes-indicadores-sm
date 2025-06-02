@@ -1,7 +1,6 @@
 package pe.gob.minsa.indicadores.infraestructure.controller;
 
 import pe.gob.minsa.indicadores.domain.ports.in.TableUseCase;
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,36 +23,40 @@ public class TableController {
     private TableUseCase tableUseCase;
 
     @GetMapping
-    public String showPage(Model model, @RequestParam(value = "message", required = false) String message) {
+    public String showPage(Model model) {
         List<String> tables = tableUseCase.listAllTables();
         model.addAttribute("tables", tables);
-        model.addAttribute("message", message);
         return "indicadores";
     }
 
     @PostMapping("/carga/tabla")
     public String uploadCsv(@RequestParam("file") MultipartFile file,
-                            RedirectAttributes redirectAttributes) {
+                          RedirectAttributes redirectAttributes) {
         try {
-        	String filename = file.getOriginalFilename();
+            String filename = file.getOriginalFilename();
             tableUseCase.createTableFromCsv(file);
-            redirectAttributes.addFlashAttribute("message", "✅ Archivo \"" + filename + "\" cargado correctamente.");
+            redirectAttributes.addFlashAttribute("uploadMessage", 
+                "✅ Archivo \"" + filename + "\" cargado correctamente.");
         } catch (IOException e) {
-            redirectAttributes.addAttribute("message", "❌ Error al procesar el archivo.");
+            redirectAttributes.addFlashAttribute("uploadMessage", 
+                "❌ Error al procesar el archivo: " + e.getMessage());
         } catch (IllegalArgumentException e) {
-            redirectAttributes.addAttribute("message", "❌ " + e.getMessage());
+            redirectAttributes.addFlashAttribute("uploadMessage", 
+                "❌ " + e.getMessage());
         }
         return "redirect:/operaciones";
     }
 
     @PostMapping("/mantenimiento/tabla/{nombreTabla}")
     public String deleteTable(@PathVariable String nombreTabla,
-                              RedirectAttributes redirectAttributes) {
+                            RedirectAttributes redirectAttributes) {
         try {
             tableUseCase.deleteTable(nombreTabla);
-            redirectAttributes.addAttribute("message", "🗑️ Tabla eliminada exitosamente.");
+            redirectAttributes.addFlashAttribute("deleteMessage", 
+                "🗑️ Tabla \"" + nombreTabla + "\" eliminada exitosamente.");
         } catch (Exception e) {
-            redirectAttributes.addAttribute("message", "❌ No se pudo eliminar la tabla.");
+            redirectAttributes.addFlashAttribute("deleteMessage", 
+                "❌ No se pudo eliminar la tabla \"" + nombreTabla + "\": " + e.getMessage());
         }
         return "redirect:/operaciones";
     }

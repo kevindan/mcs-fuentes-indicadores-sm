@@ -2,15 +2,57 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Indicadores Salud Mental</title>
+    <title>DSAME</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        @keyframes blinkDots {
+            0% { content: ""; }
+            33% { content: "."; }
+            66% { content: ".."; }
+            100% { content: "..."; }
+        }
+
+        #dots::after {
+            content: "";
+            animation: blinkDots 1.2s steps(3, start) infinite;
+        }
+        
+        .alert-auto-close {
+            animation: fadeOut 5s forwards;
+        }
+        
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; display: none; }
+        }
+    </style>
 </head>
 <body class="bg-light text-dark">
+
+<!-- Modal de Confirmación -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmDeleteModalLabel">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                ¿Estás seguro de que deseas eliminar esta tabla? Esta acción no se puede deshacer.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn squearebtn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteButton">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <header class="bg-primary text-white p-4 shadow d-flex justify-content-between align-items-center">
     <div>
         <h1 class="h3 fw-bold">🧠 Observatorio de Salud Mental</h1>
-        <p class="mb-0 small">Carga de archivos fuente de entidades externas</p>
+        <p class="mb-0 small">Ventana de carga </p>
     </div>
     <span class="small">Gestión de archivos CSV</span>
 </header>
@@ -25,7 +67,7 @@
             Este módulo permite cargar los datos en formato CSV que alimentarán el sistema de monitoreo de indicadores.
         </p>
 
-        <form th:action="@{/operaciones/carga/tabla}" method="post" enctype="multipart/form-data">
+        <form th:action="@{/operaciones/carga/tabla}" method="post" enctype="multipart/form-data" id="uploadForm">
             <div class="mb-3">
                 <input type="file" name="file" accept=".csv" class="form-control" required />
             </div>
@@ -35,30 +77,109 @@
             </div>
         </form>
 
-        <div class="mt-3 alert alert-info" th:if="${message}" th:text="${message}"></div>
+        <!-- Mensaje animado mientras se sube el archivo -->
+        <div id="loadingMessage" class="alert alert-warning mt-3 d-none" role="alert">
+            Cargando archivo<span id="dots">.</span>
+        </div>
+
+        <!-- Mensaje flash después de subir -->
+        <div class="mt-3 alert alert-info alert-auto-close" th:if="${uploadMessage}" th:text="${uploadMessage}"></div>
     </section>
 
     <section class="bg-white p-4 rounded shadow">
         <h2 class="h5 mb-3">📊 Tablas Cargadas</h2>
         <div th:if="${#lists.isEmpty(tables)}" class="text-muted">No hay tablas registradas.</div>
+        
+        <!-- Mensaje flash después de eliminar -->
+        <div class="alert alert-info alert-auto-close mb-3" th:if="${deleteMessage}" th:text="${deleteMessage}"></div>
+        
         <ul class="list-group" th:if="${!#lists.isEmpty(tables)}">
             <li class="list-group-item d-flex justify-content-between align-items-center"
                 th:each="table : ${tables}">
                 <span>📌 <span th:text="${table}"></span></span>
-                <form th:action="@{'/operaciones/mantenimiento/tabla/' + ${table}}" method="post"
-                      onsubmit="return confirm('¿Estás seguro de eliminar la tabla?');">
-                    <input type="hidden" name="_method" value="delete"/>
-                    <button type="submit" class="btn btn-sm btn-danger">🗑 Eliminar</button>
-                </form>
+                <button type="button" class="btn btn-sm btn-danger delete-btn" 
+                        th:data-table-name="${table}" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal">
+                    🗑 Eliminar
+                </button>
             </li>
         </ul>
     </section>
 </main>
 
 <footer class="bg-primary text-white text-center py-3 small">
-    Fuente: HISMINSA | Fecha de corte: 13 mayo 2025
+    Fuente: HISMINSA | ültima versión: 02 junio del 2025
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Mostrar mensaje "Cargando archivo..." al enviar el formulario de subida
+    document.getElementById('uploadForm').addEventListener('submit', function () {
+        document.getElementById('loadingMessage').classList.remove('d-none');
+        
+        // Limpiar mensajes anteriores
+        document.querySelectorAll('.alert-auto-close').forEach(alert => {
+            alert.style.display = 'none';
+        });
+    });
+
+    // Configuración del modal de eliminación
+    const confirmDeleteModal = document.getElementById('confirmDeleteModal');
+    const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+    let currentTableToDelete = '';
+    let currentDeleteButton = null;
+
+    document.querySelectorAll('.delete-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            currentTableToDelete = this.getAttribute('data-table-name');
+            currentDeleteButton = this;
+        });
+    });
+
+	confirmDeleteButton.addEventListener('click', function() {
+	    if(currentTableToDelete) {
+	        // Crear formulario dinámico para enviar la solicitud DELETE
+	        const form = document.createElement('form');
+	        form.method = 'post';
+	        form.action = `/mcs-fuentes-indicadores-sm/api/operaciones/mantenimiento/tabla/${encodeURIComponent(currentTableToDelete)}`;
+	        
+	        // Alternativa más segura si conoces el context path:
+	        // form.action = `/mcs-fuentes-indicadores-sm/operaciones/mantenimiento/tabla/${encodeURIComponent(currentTableToDelete)}`;
+	        
+	        // Añadir token CSRF si es necesario
+	        const csrfTokenMeta = document.querySelector('meta[name="_csrf"]');
+	        const csrfHeaderMeta = document.querySelector('meta[name="_csrf_header"]');
+	        
+	        if(csrfTokenMeta && csrfHeaderMeta) {
+	            const csrfInput = document.createElement('input');
+	            csrfInput.type = 'hidden';
+	            csrfInput.name = csrfHeaderMeta.content;
+	            csrfInput.value = csrfTokenMeta.content;
+	            form.appendChild(csrfInput);
+	        }
+	        
+	        const methodInput = document.createElement('input');
+	        methodInput.type = 'hidden';
+	        methodInput.name = '_method';
+	        methodInput.value = 'delete';
+	        
+	        form.appendChild(methodInput);
+	        document.body.appendChild(form);
+	        form.submit();
+	        
+	        // Cerrar modal
+	        const modal = bootstrap.Modal.getInstance(confirmDeleteModal);
+	        modal.hide();
+	    }
+	});
+
+    // Auto-cierre de mensajes después de 5 segundos
+    setTimeout(() => {
+        document.querySelectorAll('.alert-auto-close').forEach(alert => {
+            alert.style.display = 'none';
+        });
+    }, 5000);
+</script>
+
 </body>
 </html>
